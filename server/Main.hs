@@ -1,43 +1,17 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators     #-}
 module Main where
 
-import           Network.Wai
+import           Control.Concurrent.STM
 import           Network.Wai.Handler.Warp
-import           Servant
+import           Network.Wai.Logger
+import           System.IO
 
-import           Model
-
-type JsonApi =
-         "players" :> Get '[JSON] [Player]
-    :<|> "palyers" :> Capture "id" PlayerId
-            :> ReqBody '[JSON] Player :> Put '[JSON] NoContent
-
-jsonApi :: Proxy JsonApi
-jsonApi = Proxy
-
-handlers :: Server JsonApi
-handlers = getPlayers :<|> putPlayerById
-
-samplePlayers :: [Player]
-samplePlayers = [
-      Player "1" "Sally"  2
-    , Player "2" "Lance"  1
-    , Player "3" "Aki"    3
-    , Player "4" "Maria"  4
-    , Player "5" "Julian" 1
-    , Player "6" "Jaime"  1
-    ]
-
-getPlayers :: Handler [Player]
-getPlayers = return samplePlayers
-
-putPlayerById :: PlayerId -> Player -> Handler NoContent
-putPlayerById _ _ = return NoContent
-
-app :: Application
-app = serve jsonApi handlers
+import           Server
 
 main :: IO ()
-main = run 4000 app
+main = do
+    initialDB <- newTVarIO initialPlayers
+    hSetBuffering stdout LineBuffering
+    putStrLn "Listening on port 4000..."
+    withStdoutLogger $ \logger -> do
+        let settings = setPort 4000 $ setLogger logger defaultSettings
+        runSettings settings (app initialDB)
